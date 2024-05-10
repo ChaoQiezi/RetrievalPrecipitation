@@ -33,21 +33,22 @@ fy4a_daily_df = pd.read_csv(fy4a_daily_path)
 fy4a_hourly_df = pd.read_csv(fy4a_hourly_path)
 # 生成模型训练样本
 # model 1
-fy3d_cols_name = ['mwhs{:02d}'.format(_ix) for _ix in range(1, 16)]
+fy3d_cols_name = ['PRCP'] + ['mwhs{:02d}'.format(_ix) for _ix in range(1, 16)]
 generate_samples(fy3d_df, fy3d_cols_name, y_col_name, out_model1_samples_path)
 # model 4
-fy4a_cols_name = ['cn{:02d}'.format(_ix) for _ix in range(1, 15)]
+fy4a_cols_name = ['PRCP'] + ['cn{:02d}'.format(_ix) for _ix in range(1, 15)]
 generate_samples(fy4a_hourly_df, fy4a_cols_name, y_col_name, out_model4_samples_path)
 # model 14
 generate_samples(fy4a_daily_df, fy4a_cols_name, y_col_name, out_model14_samples_path)
 # model 19
 model19_cols_name = fy3d_cols_name + fy4a_cols_name
+model19_cols_name.remove('PRCP')
 fy3d_df['st_time'] = fy3d_df[['st', 'ymdh']].apply(lambda x: str(x['st']) + '_' + str(x['ymdh']), axis=1)
 fy4a_daily_df['st_time'] = fy4a_daily_df[['st', 'ymdh']].apply(lambda x: str(x['st']) + '_' + str(x['ymdh']), axis=1)
 model19_df = pd.merge(fy3d_df, fy4a_daily_df, on='st_time', suffixes=("", "_copy"))
 generate_samples(model19_df, model19_cols_name, y_col_name, out_model19_samples_path)
 
-
+print('Done!')
 
 
 

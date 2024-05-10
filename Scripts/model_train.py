@@ -16,7 +16,7 @@ import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
 
 # 准备
-samples_path = r'H:\Datasets\Objects\retrieval_prcp\Data\LSTM\Samples\model1_train_test.h5'
+samples_path = r'H:\Datasets\Objects\retrieval_prcp\Data\LSTM\Samples\model14_train_test.h5'
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 # 读取
@@ -53,7 +53,7 @@ import torch.nn as nn
 
 
 class LSTMModelFuture(nn.Module):
-    def __init__(self, input_size=16, hidden_size=512, output_size=7, num_layers=3, dropout_rate=0.1):
+    def __init__(self, input_size=15, hidden_size=512, output_size=1, num_layers=3, dropout_rate=0):
         super().__init__()
         self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, dropout=dropout_rate)
         self.regression = nn.Sequential(
@@ -72,7 +72,7 @@ class LSTMModelFuture(nn.Module):
 # 创建模型
 model = LSTMModelFuture().to(device)
 # model = LSTMModelSame().to(device)
-summary(model, input_data=(45, 16))  # 要求时间长度为14, 特征数为15, 输出模型结构
+summary(model, input_data=(30, 15))  # 要求时间长度为14, 特征数为15, 输出模型结构
 # 定义损失函数和优化器
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
@@ -80,8 +80,8 @@ optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 # 训练模型
 num_epochs = 100
 loss_epoch = []
+model.train()
 for epoch in range(num_epochs):
-    model.train()
     for inputs, labels in train_data_loader:
         inputs, labels = inputs.to(device), labels.to(device)
         optimizer.zero_grad()
@@ -145,11 +145,13 @@ for row in range(predictions.shape[0]):
 
     reals.append(real[0])
     preds.append(pred[0])
+    # preds.append(pred[0] if pred[0] > 0 else 0)
 print('mse', mean_squared_error(reals, preds))
 # print('rmse', mean_squared_log_error(reals, preds))
 print('mae', mean_absolute_error(reals, preds))
 print('r2', r2_score(reals, preds))
-fig, axs = plt.subplots(1, 2)
+fig, axs = plt.subplots(2, 1)
+axs = axs.flatten()
 ax1 = axs[0]
 ax2 = axs[1]
 ax1.plot(reals)
