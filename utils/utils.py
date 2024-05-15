@@ -13,10 +13,11 @@ import numpy as np
 from datetime import datetime
 from sklearn.preprocessing import MinMaxScaler
 
-# 初始化参数
-split_time = datetime(2020, 7, 10)  # 划分时间节点, 5~7月为训练集, 8月为验证集, 约为3:1
-time_name = None
 
+# 初始化参数
+# split_time = datetime(2020, 7, 10)  # 划分时间节点, 5~7月为训练集, 8月为验证集, 约为3:1
+from Config import split_time
+time_name = None
 
 def create_xy_same(dataset, x_col_names, y_col_name, window_size=30, step_size=1, st_col_name='st'):
     """
@@ -102,9 +103,9 @@ def generate_samples(df, x_col_names, y_col_name, out_path, time_col_name='ymdh'
 
     # 输出为HDF5文件
     with h5py.File(out_path, 'w') as f:
-        f.create_dataset('train_x', data=train_x)
-        f.create_dataset('train_y', data=train_y)
+        f.create_dataset('train_x', data=train_x, dtype=np.float32)  # float32是模型训练的默认精度
+        f.create_dataset('train_y', data=train_y, dtype=np.float32)
         f.create_dataset('train_ix', data=train_ix)
-        f.create_dataset('test_x', data=test_x)
-        f.create_dataset('test_y', data=test_y)
+        f.create_dataset('test_x', data=test_x, dtype=np.float32)
+        f.create_dataset('test_y', data=test_y, dtype=np.float32)
         f.create_dataset('test_ix', data=test_ix)

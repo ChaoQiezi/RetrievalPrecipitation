@@ -4,7 +4,7 @@
 # @Email    : chaoqiezi.one@qq.com
 
 """
-This script is used to ...
+This script is used to 用于模型的训练
 """
 
 import h5py
@@ -12,150 +12,59 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torchsummary import summary
+import matplotlib.pyplot as plt
+import tqdm
 import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
 
+from utils.model import LSTMModelFuture, LSTMModelSame, DEVICE, train_epoch
+import Config
+
 # 准备
 samples_path = r'H:\Datasets\Objects\retrieval_prcp\Data\LSTM\Samples\model14_train_test.h5'
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+save_model_path = r'H:\Datasets\Objects\retrieval_prcp\Data\LSTM\ModelStorage\LSTM_V01.pth'
+num_epochs = Config.num_epochs  # 训练次数
+lr = Config.lr  # 学习率
+batch_size = Config.batch_size  # 批次大小
+loss_epoch = []
 
-# 读取
+# 读取样本
 with h5py.File(samples_path, 'r') as f:
-    train_x, train_y, test_x, test_y = f['train_x'][:], f['train_y'][:], f['test_x'][:], f['test_y'][:]
-train_x, train_y, test_x, test_y = torch.tensor(train_x, dtype=torch.float32), \
-    torch.tensor(train_y, dtype=torch.float32), torch.tensor(test_x, dtype=torch.float32), \
-    torch.tensor(test_y, dtype=torch.float32)
-# DataLoader
-train_ds = TensorDataset(train_x, train_y)
-train_data_loader = DataLoader(train_ds, batch_size=16, shuffle=True)
-
-
-class LSTMModelSame(nn.Module):
-    def __init__(self, input_size=15, hidden_size=512, num_layers=3, output_size=1):
-        super().__init__()
-        # self.causal_conv1d = nn.Conv1d(input_size, 128, 5)
-        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, dropout=0.1)
-        self.regression = nn.Sequential(
-            nn.Linear(hidden_size, hidden_size // 2),
-            nn.Tanh(),
-            nn.Linear(hidden_size // 2, output_size)
-        )
-
-    def forward(self, x):  # x.shape=(batch_size, seq_len, input_size)
-        lstm_out, (h_n, c_n) = self.lstm(x)  # lstm_out.shape=(batch_szie, seq_len<123>, hidden_size<128>)
-        reg_out = self.regression(lstm_out).squeeze(-1)  # .squeeze(-1)  # 去除最后一个维度
-
-        return reg_out
-
-
-import torch
-import torch.nn as nn
-
-
-class LSTMModelFuture(nn.Module):
-    def __init__(self, input_size=15, hidden_size=512, output_size=1, num_layers=3, dropout_rate=0):
-        super().__init__()
-        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, dropout=dropout_rate)
-        self.regression = nn.Sequential(
-            nn.Linear(hidden_size, hidden_size // 2),
-            nn.Tanh(),
-            nn.Linear(hidden_size // 2, output_size)
-        )
-
-    def forward(self, x):  # x.shape=(batch_size, seq_len, input_size)
-        lstm_out, (h_n, c_n) = self.lstm(x)  # lstm_out.shape=(batch_szie, seq_len<123>, hidden_size<128>)
-        reg_out = self.regression(lstm_out[:, -1, :])  # .squeeze(-1)  # 去除最后一个维度
-
-        return reg_out
-
+    train_x, train_y, test_x, test_y = \
+        torch.tensor(f['train_x']), torch.tensor(f['train_y']), torch.tensor(f['test_x']), torch.tensor(f['test_y'])
+    train_size, seq_len, feature_size = train_x.shape
+# 数据加载器
+train_ds = TensorDataset(train_x, train_y)  # Each sample will be retrieved by indexing tensors along the first dimension.
+train_data_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
+# 输出基本信息
+print('当前训练特征项shape: {}\n当前训练目标项shape: {}'.format(train_x.shape, train_y.shape))
+print('训练样本数目: {}\n单个样本时间长度: {}\n单个样本特征项数: {}'.format(train_size, seq_len, feature_size))
+print('预测期数: {}'.format(train_y.shape[1]))
 
 # 创建模型
-model = LSTMModelFuture().to(device)
+model = LSTMModelFuture().to(DEVICE)
 # model = LSTMModelSame().to(device)
-summary(model, input_data=(30, 15))  # 要求时间长度为14, 特征数为15, 输出模型结构
+summary(model, input_data=(seq_len, feature_size))  # 要求时间长度为14, 特征数为15, 输出模型结构
 # 定义损失函数和优化器
 criterion = nn.MSELoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
 # 训练模型
-num_epochs = 100
-loss_epoch = []
-model.train()
-for epoch in range(num_epochs):
-    for inputs, labels in train_data_loader:
-        inputs, labels = inputs.to(device), labels.to(device)
-        optimizer.zero_grad()
-        outputs = model(inputs)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
-    loss_epoch.append(loss.item())
-    if (epoch + 1) % 10 == 0:
-        print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}')
-import matplotlib.pyplot as plt
+pbar = tqdm.tqdm(range(num_epochs))
+for epoch in pbar:
+    pbar.set_description('Epoch: {:03}'.format(epoch))
+    loss_v = train_epoch(model, train_data_loader, optimizer, loss_func=criterion)
+    pbar.set_postfix_str("Loss: {:.4f}".format(loss_v))
+    loss_epoch.append(loss_v)
+torch.save(model.state_dict(), save_model_path)  # 保存模型
+# 输出模型训练情况
+fig, ax = plt.subplots(figsize=(11, 7))
 plt.plot(loss_epoch)
+ax.set_xlabel('Epoch 次数', fontsize=24)
+ax.set_ylabel('MSE Loss', fontsize=24)
+ax.set_title('LSTM training loss diagram', fontsize=30)
+ax.legend(['MSE Loss'], fontsize=18)
+ax.tick_params(labelsize=16)
+ax.grid(linestyle='--', alpha=0.6)
 plt.show()
-# 使用训练好的模型进行预测
-# DataLoader
-test_ds = TensorDataset(test_x, test_y)
-test_data_loader = DataLoader(test_ds, batch_size=16)
-predictions, real_labels = [], []
-model.eval()
-with torch.no_grad():
-    for input, labels in test_data_loader:
-        predicted = model(input.to(device))
-
-        predictions.append(predicted.detach().cpu().numpy())
-        real_labels.append(labels.detach().cpu().numpy())
-
-from sklearn.metrics import r2_score, mean_squared_error, mean_squared_log_error, mean_absolute_error
-predictions = np.concatenate(predictions, axis=0)
-real_labels = np.concatenate(real_labels, axis=0)
-
-# mse_list = []
-# rmse_list = []
-# mae_list = []
-# r2_list = []
-# reals = []
-# preds = []
-# for row in range(predictions.shape[0]):
-#     pred = predictions[row, :]
-#     real = real_labels[row, :]
-#     mse = mean_squared_error(real, pred)
-#     # rmse = mean_squared_log_error(real, pred)
-#     mae = mean_absolute_error(real, pred)
-#     r2 = r2_score(real, pred)
-#
-#     mse_list.append(mse)
-#     # rmse_list.append(rmse)
-#     mae_list.append(mae)
-#     r2_list.append(r2)
-#     reals.append(real[0])
-#     preds.append(pred[0])
-# print('mse', np.mean(mse_list))
-# print('rmse', np.mean(rmse_list))
-# print('mae', np.mean(mae_list))
-# print('r2', np.mean(r2_list))
-
-reals = []
-preds = []
-for row in range(predictions.shape[0]):
-    pred = predictions[row, :]
-    real = real_labels[row, :]
-
-    reals.append(real[0])
-    preds.append(pred[0])
-    # preds.append(pred[0] if pred[0] > 0 else 0)
-print('mse', mean_squared_error(reals, preds))
-# print('rmse', mean_squared_log_error(reals, preds))
-print('mae', mean_absolute_error(reals, preds))
-print('r2', r2_score(reals, preds))
-fig, axs = plt.subplots(2, 1)
-axs = axs.flatten()
-ax1 = axs[0]
-ax2 = axs[1]
-ax1.plot(reals)
-ax2.plot(preds)
-plt.show()
-# print(f'Predicted precipitation: {predicted}')
 
