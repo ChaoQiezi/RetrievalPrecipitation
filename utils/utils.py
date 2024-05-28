@@ -6,18 +6,22 @@
 """
 This script is used to 存放常用工具和函数
 """
+import os.path
 
 import h5py
+import joblib
 import pandas as pd
 import numpy as np
 from datetime import datetime
 from sklearn.preprocessing import MinMaxScaler
 
-
+import Config
 # 初始化参数
 # split_time = datetime(2020, 7, 10)  # 划分时间节点, 5~7月为训练集, 8月为验证集, 约为3:1
-from Config import split_time
+from Config import split_time, seq_len_day, pred_len_day
+
 time_name = None
+
 
 def create_xy_same(dataset, x_col_names, y_col_name, window_size=30, step_size=1, st_col_name='st'):
     """
@@ -47,7 +51,8 @@ def create_xy_same(dataset, x_col_names, y_col_name, window_size=30, step_size=1
     return xs, ys, ixs
 
 
-def create_xy_future(dataset, x_col_names, y_col_name, window_size=30, step_size=1, future_size=1, st_col_name='st'):
+def create_xy_future(dataset, x_col_names, y_col_name, window_size=seq_len_day, step_size=1, future_size=pred_len_day,
+                     st_col_name='st', format_date='%Y%m%d%H'):
     """
     为时间序列基于滑动窗口生成样本, X和Y不同时期
     :param dataset: 待划分的数据
@@ -69,7 +74,8 @@ def create_xy_future(dataset, x_col_names, y_col_name, window_size=30, step_size
             xs.append(cur_data.loc[x_start:x_end, x_col_names])
             ys.append(cur_data.loc[y_start:y_end, y_col_name])
             # ixs.append(cur_data.loc[y_start:y_end, time_name])
-            ixs.append(cur_data.loc[y_start:y_end, [time_name]].apply(lambda x: x[time_name].strftime('%Y%m%d'), axis=1))
+            ixs.append(
+                cur_data.loc[y_start:y_end, :].apply(lambda x: str(x[st_col_name]) + '_' + x[time_name].strftime(format_date), axis=1))
     xs = np.array(xs)
     ys = np.array(ys)
     ixs = np.array(ixs)
@@ -80,19 +86,18 @@ def create_xy_future(dataset, x_col_names, y_col_name, window_size=30, step_size
 # def generate_samples(df, x_col_names, y_col_name, out_path, time_col_name='ymdh', format_str='%Y%m%d%H',
 #                      split_time=split_time, is_same_periods=False, window_size=30, step_size=1, future_size=1,
 #                      st_col_name='st'):
-def generate_samples(df, x_col_names, y_col_name, out_path, time_col_name='ymdh', format_str='%Y%m%d%H',
-                     split_time=split_time, is_same_periods=False, **kwargs):
+def generate_samples(df, x_col_names, y_col_name, out_path, time_col_name='ymdh', format_date='%Y%m%d%H',
+                     split_time=split_time, is_same_periods=False, model_fix=None, **kwargs):
     global time_name
     time_name = time_col_name
 
-    df[time_col_name] = pd.to_datetime(df[time_col_name], format=format_str)  # 转换成时间对象
+    df[time_col_name] = pd.to_datetime(df[time_col_name], format=format_date)  # 转换成时间对象
     # 训练测试集划分
     train_ds = df[df[time_col_name] <= split_time]
     test_ds = df[df[time_col_name] > split_time]
     # 标准化
-    scaler = MinMaxScaler()  # 标准化器
-    train_ds.loc[:, x_col_names] = scaler.fit_transform(train_ds.loc[:, x_col_names])
-    test_ds.loc[:, x_col_names] = scaler.transform(test_ds.loc[:, x_col_names])  # 注意标准化不能独立对测试集进行, 标准化参数应来源于训练集
+    train_ds, test_ds = normalize_xy(train_ds,  test_ds, x_col_names, y_col_name, scaler_path=Config.scalers_path,
+                                     model_fix=model_fix)
     # 特征项(x/features)和目标项(y/targets)划分
     if not is_same_periods:
         train_x, train_y, train_ix = create_xy_future(train_ds, x_col_names, y_col_name, **kwargs)
@@ -109,3 +114,23 @@ def generate_samples(df, x_col_names, y_col_name, out_path, time_col_name='ymdh'
         f.create_dataset('test_x', data=test_x, dtype=np.float32)
         f.create_dataset('test_y', data=test_y, dtype=np.float32)
         f.create_dataset('test_ix', data=test_ix)
+
+    print(f'model{model_fix} 样本数据已经生成.')
+
+
+def normalize_xy(train_ds, test_ds, x_names, y_name, scaler_path='', model_fix=None):
+    # 标准化
+    x_scaler, y_scaler = MinMaxScaler(), MinMaxScaler()  # 标准化器
+
+    train_ds.loc[:, x_names] = x_scaler.fit_transform(train_ds.loc[:, x_names])
+    test_ds.loc[:, x_names] = x_scaler.transform(test_ds.loc[:, x_names])  # 注意标准化不能独立对测试集进行, 标准化参数应来源于训练集
+
+    train_ds.loc[:, y_name] = y_scaler.fit_transform(train_ds[[y_name]])
+    test_ds.loc[:, y_name] = y_scaler.transform(test_ds[[y_name]])  # 标准化目标变量
+
+    if os.path.exists(scaler_path):
+        scalers = joblib.load(scaler_path)
+        scalers.update({f'model{model_fix}_x_scaler': x_scaler, f'model{model_fix}_y_scaler': y_scaler})
+        joblib.dump(scalers, scaler_path)
+
+    return train_ds, test_ds

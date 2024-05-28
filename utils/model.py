@@ -63,16 +63,49 @@ class LSTMModelFuture(nn.Module):
         return reg_out
 
 
-def train_epoch(model, data_loader, optimizer, loss_func=nn.MSELoss()):
+def train_epoch(model, data_loader, optimizer, loss_func=nn.MSELoss(), pbar=None):
     model.train()  # 训练模式
 
     # 每次迭代batch_size样本
     for inputs, targets in data_loader:
         inputs, targets = inputs.to(DEVICE), targets.to(DEVICE)
+        # 清理存在NAN的样本
+        valid_mask = ~(torch.isnan(inputs).any(dim=1).any(dim=1) | torch.isnan(targets).any(1))
+        if valid_mask.any():  # 但凡有一个样本存在有效值
+            inputs, targets = inputs[valid_mask], targets[valid_mask]
+        else:
+            continue
+
         optimizer.zero_grad()  # 清除存储梯度
         outputs = model(inputs)  # 模型预测
         loss = loss_func(outputs, targets)  # 计算损失
         loss.backward()  # 反向传播,计算梯度
         optimizer.step()  # 更新权重
+
+        if pbar is not None:
+            pbar.set_postfix_str("Loss: {:.4f}".format(loss.item()))
     else:
         return loss.item()
+
+
+# def train_epoch_ignore_nan(model, data_loader, optimizer, loss_func=nn.MSELoss(), pbar=None):
+#     model.train()  # 训练模式
+#
+#     # 每次迭代batch_size样本
+#     for inputs, targets in data_loader:
+#         inputs, targets = inputs.to(DEVICE), targets.to(DEVICE)
+#         # 检测nan
+#         valid_mask = ~(torch.isnan(inputs).any(dim=1).any(dim=1) | torch.isnan(targets).any(1))
+#         if not valid_mask.any():  # 所有样本均存在无效值
+#             continue
+#
+#         optimizer.zero_grad()  # 清除存储梯度
+#         outputs = model(inputs[[0]])  # 模型预测
+#         loss = loss_func(outputs[valid_mask], targets[valid_mask])  # 计算损失,忽略存在nan的样本
+#         loss.backward()  # 反向传播,计算梯度
+#         optimizer.step()  # 更新权重
+#
+#         if pbar is not None:
+#             pbar.set_postfix_str("Loss: {:.4f}".format(loss.item()))
+#     else:
+#         return loss.item()

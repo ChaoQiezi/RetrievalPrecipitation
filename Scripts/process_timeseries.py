@@ -14,7 +14,10 @@ Note:
 """
 
 import pandas as pd
+
 from utils.utils import generate_samples
+import Config
+
 
 # 准备
 fy3d_daily_path = r'H:\Datasets\Objects\retrieval_prcp\Data\PRCP_cq34_FY3DL2_202005_08_daily_T_order.csv'
@@ -32,23 +35,24 @@ fy3d_df = pd.read_csv(fy3d_daily_path)
 fy4a_daily_df = pd.read_csv(fy4a_daily_path)
 fy4a_hourly_df = pd.read_csv(fy4a_hourly_path)
 # 生成模型训练样本
-# model 1
+# model 1(daily)
 fy3d_cols_name = ['PRCP'] + ['mwhs{:02d}'.format(_ix) for _ix in range(1, 16)]
-generate_samples(fy3d_df, fy3d_cols_name, y_col_name, out_model1_samples_path)
-# model 4
+generate_samples(fy3d_df, fy3d_cols_name, y_col_name, out_model1_samples_path, model_fix=1)
+# model 4(hourly, exist NAN)
 fy4a_cols_name = ['PRCP'] + ['cn{:02d}'.format(_ix) for _ix in range(1, 15)]
-generate_samples(fy4a_hourly_df, fy4a_cols_name, y_col_name, out_model4_samples_path)
-# model 14
-generate_samples(fy4a_daily_df, fy4a_cols_name, y_col_name, out_model14_samples_path)
-# model 19
+generate_samples(fy4a_hourly_df, fy4a_cols_name, y_col_name, out_model4_samples_path, window_size=Config.seq_len_hour,
+                 future_size=Config.pred_len_hour, model_fix=4)
+# model 14(daily)
+generate_samples(fy4a_daily_df, fy4a_cols_name, y_col_name, out_model14_samples_path, model_fix=14)
+# model 19(daily)
 model19_cols_name = fy3d_cols_name + fy4a_cols_name
 model19_cols_name.remove('PRCP')
 fy3d_df['st_time'] = fy3d_df[['st', 'ymdh']].apply(lambda x: str(x['st']) + '_' + str(x['ymdh']), axis=1)
 fy4a_daily_df['st_time'] = fy4a_daily_df[['st', 'ymdh']].apply(lambda x: str(x['st']) + '_' + str(x['ymdh']), axis=1)
 model19_df = pd.merge(fy3d_df, fy4a_daily_df, on='st_time', suffixes=("", "_copy"))
-generate_samples(model19_df, model19_cols_name, y_col_name, out_model19_samples_path)
+generate_samples(model19_df, model19_cols_name, y_col_name, out_model19_samples_path, model_fix=19)
 
-print('Done!')
+print('时间序列样本生成结束.')
 
 
 
