@@ -6,19 +6,24 @@
 """
 This script is used to 存放常用工具和函数
 """
-import os.path
-
-import h5py
-import joblib
-import pandas as pd
-import numpy as np
-from datetime import datetime
-from sklearn.preprocessing import MinMaxScaler
 
 import Config
 # 初始化参数
 # split_time = datetime(2020, 7, 10)  # 划分时间节点, 5~7月为训练集, 8月为验证集, 约为3:1
 from Config import split_time, seq_len_day, pred_len_day
+
+
+import os
+import h5py
+import joblib
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+from datetime import datetime
+from sklearn.preprocessing import MinMaxScaler
+
+
 
 time_name = None
 
@@ -83,11 +88,22 @@ def create_xy_future(dataset, x_col_names, y_col_name, window_size=seq_len_day, 
     return xs, ys, ixs
 
 
-# def generate_samples(df, x_col_names, y_col_name, out_path, time_col_name='ymdh', format_str='%Y%m%d%H',
-#                      split_time=split_time, is_same_periods=False, window_size=30, step_size=1, future_size=1,
-#                      st_col_name='st'):
 def generate_samples(df, x_col_names, y_col_name, out_path, time_col_name='ymdh', format_date='%Y%m%d%H',
                      split_time=split_time, is_same_periods=False, model_fix=None, **kwargs):
+    """
+        基于滑动窗口对时间序列数据集进行训练和测试样本的生成, 此外还进行了数据集的标准化
+        :param df: 包含特征项和目标项、以及标识时间列的pd.Dataframe结构
+        :param x_col_names: 特征项的列名称
+        :param y_col_name: 目标项的列名称
+        :param out_path: 生成的样本集的输出路径
+        :param time_col_name: 标识时间列的名称
+        :param format_date: 时间列的format样式
+        :param split_time: 划分训练集和测试机的时间节点
+        :param is_same_periods: 单个样本中的目标项和特征项是否为同时期
+        :param model_fix:
+        :param kwargs:
+        :return:
+        """
     global time_name
     time_name = time_col_name
 
@@ -134,3 +150,28 @@ def normalize_xy(train_ds, test_ds, x_names, y_name, scaler_path='', model_fix=N
         joblib.dump(scalers, scaler_path)
 
     return train_ds, test_ds
+
+
+def fast_viewing(df, station_names, feature_names, out_path=None):
+    """
+    快速查看各个站点各个特征随时间的分布
+    :param df:
+    :param station_names:
+    :param feature_names:
+    :param out_path:
+    :return:
+    """
+    fig, axs = plt.subplots(len(feature_names), len(station_names), figsize=(50, 50))
+    for col_ix, station_name in enumerate(station_names):
+        temp_df = df[df['st'] == station_name]
+        for row_ix, feature_name in enumerate(feature_names):
+            ax = axs[row_ix, col_ix]
+            sns.lineplot(x=temp_df['date'], y=temp_df[feature_name], ax=ax)
+            # ax.plot(temp_df['date'], temp_df[feature_name])
+            ax.set_title('Times series line of {}-{}'.format(station_name, feature_name))
+            ax.set_xlabel('Date')
+            ax.set_ylabel(feature_name)
+    if out_path is not None:
+        fig.savefig(out_path, dpi=177)
+    fig.show()  # 大批量制图请将其关闭
+    plt.close(fig)  # 显式关闭

@@ -13,10 +13,11 @@ Note:
     model_19: FY3D-MWHS 1-15 + FY4A cn1-14, daily, 5-8month, not exist NAN
 """
 
-import pandas as pd
-
-from utils.utils import generate_samples
+from utils.utils import generate_samples, fast_viewing
 import Config
+
+
+import pandas as pd
 
 
 # 准备
@@ -34,9 +35,11 @@ y_col_name = 'PRCP'
 fy3d_df = pd.read_csv(fy3d_daily_path)
 fy4a_daily_df = pd.read_csv(fy4a_daily_path)
 fy4a_hourly_df = pd.read_csv(fy4a_hourly_path)
+fy3d_df['date'] = pd.to_datetime(fy3d_df['ymdh'], format='%Y%m%d%H')
 # 生成模型训练样本
 # model 1(daily)
 fy3d_cols_name = ['PRCP'] + ['mwhs{:02d}'.format(_ix) for _ix in range(1, 16)]
+fast_viewing(fy3d_df, fy3d_df['st'].unique()[:3], fy3d_cols_name)  # 简单展示3个站点的各个特征项和目标项随时间变化
 generate_samples(fy3d_df, fy3d_cols_name, y_col_name, out_model1_samples_path, model_fix=1)
 # model 4(hourly, exist NAN)
 fy4a_cols_name = ['PRCP'] + ['cn{:02d}'.format(_ix) for _ix in range(1, 15)]
