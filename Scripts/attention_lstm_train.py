@@ -1,10 +1,10 @@
 # @Author   : ChaoQiezi
 # @Time     : 2024/4/24  21:12
-# @FileName : model_train.py
+# @FileName : lstm_train.py
 # @Email    : chaoqiezi.one@qq.com
 
 """
-This script is used to 用于模型的训练
+This script is used to 用于基于注意力机制的lstm模型的训练
 """
 
 import h5py
@@ -17,29 +17,40 @@ import tqdm
 import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
 
-from utils.model import LSTMModelFuture, DEVICE, train_epoch
+from utils.model import LSTMModelFuture, DEVICE, train_epoch, Attention_LSTM
 import Config
 
 # 准备
-model_name = 'model4'
+model_name = 'model1'
 samples_path = r'H:\Datasets\Objects\retrieval_prcp\Data\LSTM\Samples\{}_train_test.h5'.format(model_name)
-save_model_path = r'H:\Datasets\Objects\retrieval_prcp\Data\LSTM\ModelStorage\{}_V01.pth'.format(model_name)
+save_model_path = r'H:\Datasets\Objects\retrieval_prcp\Data\LSTM\ModelStorage\{}_attn_lstm.pth'.format(model_name)
 
 # 读取样本
 with h5py.File(samples_path, 'r') as f:
     train_x, train_y = torch.tensor(f['train_x'][:]), torch.tensor(f['train_y'][:]),
     train_size, seq_len, feature_size = train_x.shape
+    pred_len = train_y.shape[1]
 # 数据加载器
 train_ds = TensorDataset(train_x, train_y)  # Each sample will be retrieved by indexing tensors along the first dimension.
 train_data_loader = DataLoader(train_ds, batch_size=Config.batch_size, shuffle=True)
 # 输出基本信息
 print('当前训练特征项shape: {}\n当前训练目标项shape: {}'.format(train_x.shape, train_y.shape))
-print('训练样本数目: {}\n单个样本时间长度: {}\n单个样本特征项数: {}'.format(train_size, seq_len, feature_size))
-print('预测期数: {}'.format(train_y.shape[1]))
+print('训练样本数目: {}\n单个样本特征项数: {}'.format(train_size, feature_size))
+print('记忆期: {}; 预见期: {}'.format(seq_len, pred_len))
 
 # 创建模型
-model = LSTMModelFuture(feature_size, output_size=Config.pred_len_day).to(DEVICE)
-# model = LSTMModelSame().to(device)
+model_params = {
+    'lstm': {
+        'input_size': feature_size,  # 输入特征维度
+        'hidden_size': 256,              # LSTM隐藏层维度
+        'num_layers': 2,                 # LSTM层数
+        'output_size': 1                 # 输出维度
+    },
+    'attention': {
+        'num_heads': 8                   # 注意力头数
+    }
+}
+model = Attention_LSTM(model_params['lstm'], model_params['attention'])
 summary(model, input_data=(seq_len, feature_size))  # 要求时间长度为14, 特征数为15, 输出模型结构
 # 定义损失函数和优化器
 criterion = nn.MSELoss()

@@ -1,7 +1,12 @@
 
 Scripts/Era5_download/Core.zip
-Ref/Others/net.pth
-Ref/Others/lstm_reg.png
-Ref/Others/lstm_reg.png
-Ref/Others/net.pth
-Ref/Others/Core.zip
+Assets/Ref/Others/net.pth
+Assets/Ref/Others/lstm_reg.png
+Assets/Ref/Others/lstm_reg.png
+Assets/Ref/Others/net.pth
+Assets/Ref/Others/Core.zip
+/Assets/Charts
+/Assets
+/utils/__pycache__
+/utils/__pycache__
+/__pycache__

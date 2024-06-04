@@ -20,8 +20,8 @@ plt.rcParams['axes.unicode_minus'] = True  # 显示正负号
 # plt.rcParams['font.family'] = 'Times New Roman'
 
 # 初始化参数
-split_time = datetime(2020, 7, 5)  # 数据集的划分时间节点, 5~7月为训练集, 8月为验证集, 约为3:1
-seq_len_day = 15  # 记忆时间(时间分辨率: day)
+split_time = datetime(2020, 7, 1)  # 数据集的划分时间节点, 5~7月为训练集, 8月为验证集, 约为3:1
+seq_len_day = 7  # 记忆时间(时间分辨率: day)
 pred_len_day = 1  # 预见期(day)
 seq_len_hour = 96  # 记忆时间(时间分辨率: hour)
 pred_len_hour = 1  # 预见期(hour)
@@ -30,8 +30,8 @@ pred_len_hour = 1  # 预见期(hour)
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 num_epochs = 50  # 训练次数
 lr = 1e-4  # 学习率
-batch_size = 32  # 批次大小
-scalers_path = r'I:\PyProJect\RetrievalPrecipitation\scalers.pkl'
+batch_size = 512  # 批次大小
+scalers_path = r'I:\PyProJect\RetrievalPrecipitation\Assets\scalers.pkl'
 if not os.path.exists(scalers_path):
     joblib.dump({}, scalers_path)
 else:

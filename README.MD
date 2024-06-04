@@ -1,5 +1,13 @@
 # 01 完成model1的模型构建
+
 使用PRCP_cq34_FY3DL2_202005_08_daily_T_order.csv
+
+目前暂实现的各个模型的输入情况
+
+    model_1: FY3D-MWHS 1-15, daily, 5-8month, not exist NAN
+    model_4: FY4A cn1-14, hourly, 5-8month, exists NAN
+    model_14: FY4A cn1-14, daily, 5-8month, not exist NAN
+    model_19: FY3D-MWHS 1-15 + FY4A cn1-14, daily, 5-8month, not exist NAN
 
 # 00 步骤记录
 ## 2024/04/27前 理清模型核心部分
@@ -39,6 +47,19 @@
 现在重点在着手解决model训练的loss虽然看着很小, 至少相对于RF,而且目前评估时的各类
 指标也比较小,但是实际绘图:
 ![模型预测结果_2024/5/16]()
+
+
+## 2024/6/3 尝试优化模型
+
+
+
+# 后续可能增加
+1. 优化配置文件
+2. 增加自注意力机制的LSTM模型,期望得到更好结果
+3. 完善各类数据排列组合传入的模型的运行流程
+4. 解决部分训练数据(时间分辨率: 小时)中存在的无效值,暂通过多项式插值解决
+5. 是否需要类似径流模拟项目中类似做法对时间序列进行卡尔曼滤波?
+6. 为process_timeseries.py等脚本增加基本信息的输出以明晰运行情况(最好通过日志生成)
 
 
 

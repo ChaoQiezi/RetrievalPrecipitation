@@ -111,7 +111,7 @@ def run_train_lstm():
     mid_dim = 8
     mid_layers = 1
     batch_size = 12 * 4
-    mod_dir = '../../Scripts'
+    mod_dir = '../../../Scripts'
 
     '''load data'''
     data = load_data()
@@ -210,7 +210,7 @@ def run_train_lstm():
 def run_origin():
     inp_dim = 2
     out_dim = 1
-    mod_dir = '../../Scripts'
+    mod_dir = '../../../Scripts'
 
     '''load data'''
     data = load_data()  # axis1: number, year, month
